@@ -59,11 +59,13 @@ end
 ---@return any
 ---@return string[] -- TODO: does this have to be here?
 Parser.parse = function(self, str)
+  print("parsing yaml here")
   -- Collect and pre-process lines.
   local lines = {}
   local base_indent = 0
   for raw_line in str:gmatch "[^\r\n]+" do
     local ok, result = pcall(Line.new, raw_line, base_indent)
+    print("raw line = ", raw_line, "; ok? ", ok)
     if ok then
       local line = result
       if #lines == 0 then
@@ -73,6 +75,7 @@ Parser.parse = function(self, str)
       table.insert(lines, line)
     else
       local err = result
+      print("err on line ", raw_line, "; msg = ", tostring(err))
       error(self:_error_msg(tostring(err), #lines + 1))
     end
   end
@@ -87,9 +90,13 @@ Parser.parse = function(self, str)
   local order = {} ---@type string[]
   while i <= #lines do
     local line = lines[i]
-
+    -- it looks like this function gets called 3 times before :w is done
+    -- first 2 the blank tag is there. The last time it's called 
+    -- the blank key is gone
+    print("parsing line ", line)
     if line:is_empty() then
       -- Empty line, skip it.
+      print("skipping empty line")
       i = i + 1
     elseif line.indent == current_indent then
       local value

@@ -837,6 +837,8 @@ Note.frontmatter_lines = function(self, current_lines)
     local yaml_body_lines = vim.tbl_filter(function(line)
       return not Note._is_frontmatter_boundary(line)
     end, current_lines)
+    -- entry is only being preserved if the value for a given key is not none
+    print("note.lua calling yaml.loads")
     syntax_ok, _, order = pcall(yaml.loads, table.concat(yaml_body_lines, "\n"))
   end
   if syntax_ok or not has_frontmatter then -- if parse success or there's no frontmatter (and should insert)
@@ -1079,6 +1081,7 @@ Note.save_to_buffer = function(self, opts)
   end
 
   local frontmatter_end_line = self.frontmatter_end_line
+  end_line_str = vim.inspect(frontmatter_end_line)
 
   ---@type string[]
   local current_lines = {}
@@ -1090,6 +1093,7 @@ Note.save_to_buffer = function(self, opts)
   local new_lines
   if opts.insert_frontmatter ~= false then
     new_lines = self:frontmatter_lines(current_lines)
+    local new_lines_str = vim.inspect(new_lines)
   else
     new_lines = {}
   end

@@ -57,8 +57,14 @@ end
 ---@return { id: string, tags: string[], aliases: string[] }
 ---@return table<string, any>
 M.parse = function(frontmatter_lines, path)
+  -- print("frontmatter lines = ")
+  -- fml = vim.inspect(frontmatter_lines)
+  -- print(fml)
   local frontmatter = table.concat(frontmatter_lines, "\n")
+  print("calling yaml.loads from frontmatter/init.lua")
   local ok, data = pcall(yaml.loads, frontmatter)
+  -- data_str = vim.inspect(data)
+  -- print("yaml.loads: ", data_str)
   if type(data) ~= "table" then
     data = {}
   end
