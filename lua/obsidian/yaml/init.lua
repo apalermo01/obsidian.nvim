@@ -54,6 +54,9 @@ dumps = function(x, indent, order)
     return { indent_str .. tostring(x) }
   end
 
+  if type(x) == "userdata" and tostring(x) == "vim.NIL" then
+    return { indent_str }
+  end
   if type(x) == "table" then
     local out = {}
 
