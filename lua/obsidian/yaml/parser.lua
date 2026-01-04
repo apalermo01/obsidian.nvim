@@ -13,7 +13,7 @@ m.ParserOpts = ParserOpts
 ---@return obsidian.yaml.ParserOpts
 ParserOpts.default = function()
   return {
-    luanil = true,
+    luanil = false,
   }
 end
 
@@ -56,21 +56,33 @@ end
 
 ---Parse a YAML string.
 ---@param str string
+---@param debug boolean
 ---@return any
 ---@return string[] -- TODO: does this have to be here?
-Parser.parse = function(self, str)
-  print("parsing yaml here")
+Parser.parse = function(self, str, debug)
+  debug = debug or false
+
+  print("debug = ", debug)
+  if debug then
+    print "parsing yaml here"
+  end
+
   -- Collect and pre-process lines.
   local lines = {}
   local base_indent = 0
   for raw_line in str:gmatch "[^\r\n]+" do
     local ok, result = pcall(Line.new, raw_line, base_indent)
-    print("raw line = ", raw_line, "; ok? ", ok)
+    if debug and raw_line == "test: " then
+      print("raw line = ", raw_line, "; ok? ", ok, "; result = ", vim.inspect(result))
+    end
     if ok then
       local line = result
       if #lines == 0 then
         base_indent = line.indent
         line.indent = 0
+      end
+      if debug and raw_line == "test:" then
+        print("inserted line ", line)
       end
       table.insert(lines, line)
     else
@@ -90,20 +102,40 @@ Parser.parse = function(self, str)
   local order = {} ---@type string[]
   while i <= #lines do
     local line = lines[i]
+    local prnt = debug and line.content == "test:"
     -- it looks like this function gets called 3 times before :w is done
-    -- first 2 the blank tag is there. The last time it's called 
+    -- first 2 the blank tag is there. The last time it's called
     -- the blank key is gone
-    print("parsing line ", line)
+    if debug then
+      print "\n============\n"
+      print("parsing line ", line)
+    end
     if line:is_empty() then
       -- Empty line, skip it.
-      print("skipping empty line")
+      if debug then
+        print "line is empty!"
+      end
       i = i + 1
     elseif line.indent == current_indent then
       local value
       local value_type
-      i, value, value_type = self:_parse_next(lines, i)
+      i, value, value_type = self:_parse_next(lines, i, nil, debug)
+      if debug then
+        print(
+          "just called _parse_next",
+          "value = ",
+          vim.inspect(value),
+          "; value_type = ",
+          vim.inspect(value_type),
+          "; type(value) = ",
+          type(value)
+        )
+      end
       if type(value) == "table" then
         local k, v = next(value)
+        if debug then
+          print("k = ", k, "; v = ", vim.inspect(v))
+        end
         if k and v then
           order[#order + 1] = k
         end
@@ -145,6 +177,9 @@ Parser.parse = function(self, str)
     current_indent = line.indent
   end
 
+  if debug then
+    print("returning. root value = ", vim.inspect(root_value), "; order = ", vim.inspect(order))
+  end
   return root_value, order
 end
 
@@ -153,25 +188,41 @@ end
 ---@param lines obsidian.yaml.Line[]
 ---@param i integer
 ---@param text string|?
+---@param debug boolean|?
 ---@return integer, any, string
-Parser._parse_next = function(self, lines, i, text)
+Parser._parse_next = function(self, lines, i, text, debug)
   local line = lines[i]
+  if debug then
+    print("++++++++++ running parse_next on ", line)
+  end
   if text == nil then
+    if debug then
+      print "text is nil"
+    end
     -- Skip empty lines.
     while line:is_empty() and i <= #lines do
       i = i + 1
       line = lines[i]
     end
     if line:is_empty() then
+      if debug then
+        print "returning empty line"
+      end
       return i, nil, YamlType.EmptyLine
     end
     text = yaml_util.strip_comments(line.content)
+    if debug then
+      print("text = ", text)
+    end
   end
 
   local _, ok, value
 
   -- First just check for a string enclosed in quotes.
   if yaml_util.has_enclosing_chars(text) then
+    if debug then
+      print "has enclosing chars was true"
+    end
     _, _, value = self:_parse_string(i, text)
     return i + 1, value, YamlType.Scalar
   end
@@ -179,23 +230,35 @@ Parser._parse_next = function(self, lines, i, text)
   -- Check for array item, like `- foo`.
   ok, i, value = self:_try_parse_array_item(lines, i, text)
   if ok then
+    if debug then
+      print "parsing array"
+    end
     return i, value, YamlType.ArrayItem
   end
 
   -- Check for a block string field, like `foo: |`.
   ok, i, value = self:_try_parse_block_string(lines, i, text)
   if ok then
+    if debug then
+      print "parse block string"
+    end
     return i, value, YamlType.Mapping
   end
 
   -- Check for any other `key: value` fields.
-  ok, i, value = self:_try_parse_field(lines, i, text)
+  ok, i, value = self:_try_parse_field(lines, i, text, debug)
+  if debug then
+    print("try parse field. value = ", vim.inspect(value), "; ok = ", ok, "; i = ", i)
+  end
   if ok then
     return i, value, YamlType.Mapping
   end
 
   -- Otherwise we have an inline value.
   local value_type
+  if debug then
+    print "parse inline value"
+  end
   value, value_type = self:_parse_inline_value(i, text)
   return i + 1, value, value_type
 end
@@ -230,26 +293,42 @@ local YAML_MAPPING_INLINE_REGEX = string.format("%s: (.*)", YAML_KEY_REGEX)
 ---@param i integer
 ---@param lines obsidian.yaml.Line[]
 ---@param text string|?
+---@param debug boolean|?
 ---@return boolean, integer, any
-Parser._try_parse_field = function(self, lines, i, text)
+Parser._try_parse_field = function(self, lines, i, text, debug)
   local line = lines[i]
+  if debug then
+    print("line = ", line)
+  end
   text = text and text or yaml_util.strip_comments(line.content)
 
   local _, key, value
 
   -- First look for start of mapping, array, block, etc, e.g. 'foo:'
   _, _, key = string.find(text, YAML_MAPPING_START_REGEX)
+  if debug then
+    print("key after matching on YAML_MAPPING_INLINE_REGEX: ", key)
+  end
   if not key then
     -- Then try inline field, e.g. 'foo: bar'
     _, _, key, value = string.find(text, YAML_MAPPING_INLINE_REGEX)
   end
 
   value = value and vim.trim(value) or nil
+  if debug then
+    print("value = ", value)
+  end
   if value == "" then
+    if debug then
+      print "value is nil"
+    end
     value = nil
   end
 
   if key ~= nil and value ~= nil then
+    if debug then
+      print "both key and value are not nil"
+    end
     -- This is a mapping, e.g. `foo: 1`.
     local out = {}
     value = self:_parse_inline_value(i, value)
@@ -277,6 +356,9 @@ Parser._try_parse_field = function(self, lines, i, text)
     local out = {}
     local next_line = lines[i + 1]
     local j = i + 1
+    if debug then
+      print "key is not nil"
+    end
     if next_line ~= nil and next_line.indent >= line.indent and vim.startswith(next_line.content, "- ") then
       -- This is the start of an array.
       local array
@@ -289,7 +371,14 @@ Parser._try_parse_field = function(self, lines, i, text)
       out[key] = mapping
     else
       -- This is an implicit null field.
+      if debug then
+        print "implicit null field"
+        print("luanil = ", self.opts.luanil)
+      end
       out[key] = self:_new_null()
+      if debug then
+        print("out = ", vim.inspect(out), "; key = ", key)
+      end
     end
     return true, j, out
   else
@@ -651,9 +740,9 @@ Parser.parse_null = function(self, text)
 end
 
 ---Deserialize a YAML string.
-m.loads = function(str)
+m.loads = function(str, debug)
   local parser = m.new()
-  return parser:parse(str)
+  return parser:parse(str, debug)
 end
 
 return m

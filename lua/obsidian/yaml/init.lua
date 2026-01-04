@@ -7,8 +7,8 @@ local yaml = {}
 ---@param str string
 ---@return any
 ---@return string[]
-yaml.loads = function(str)
-  return parser.loads(str)
+yaml.loads = function(str, debug)
+  return parser.loads(str, debug)
 end
 
 ---@param s string

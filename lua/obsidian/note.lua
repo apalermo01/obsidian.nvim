@@ -839,7 +839,7 @@ Note.frontmatter_lines = function(self, current_lines)
     end, current_lines)
     -- entry is only being preserved if the value for a given key is not none
     print("note.lua calling yaml.loads")
-    syntax_ok, _, order = pcall(yaml.loads, table.concat(yaml_body_lines, "\n"))
+    syntax_ok, _, order = pcall(yaml.loads, table.concat(yaml_body_lines, "\n"), true)
   end
   if syntax_ok or not has_frontmatter then -- if parse success or there's no frontmatter (and should insert)
     ---@diagnostic disable-next-line: param-type-mismatch

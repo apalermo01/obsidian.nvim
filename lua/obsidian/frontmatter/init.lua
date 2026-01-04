@@ -51,6 +51,13 @@ M.dump = function(t, order)
   return lines
 end
 
+TestFunc = function(arg1, arg2)
+
+
+    local arg2 = arg2 or false
+    print("arg1 is ", arg1, "arg2 is ", arg2)
+end
+
 --- Parse and validate info from frontmatter.
 ---
 ---@param frontmatter_lines string[]
@@ -62,7 +69,8 @@ M.parse = function(frontmatter_lines, path)
   -- print(fml)
   local frontmatter = table.concat(frontmatter_lines, "\n")
   print("calling yaml.loads from frontmatter/init.lua")
-  local ok, data = pcall(yaml.loads, frontmatter)
+  -- pcall(TestFunc, "test1", true)
+  local ok, data = pcall(yaml.loads, frontmatter, false)
   -- data_str = vim.inspect(data)
   -- print("yaml.loads: ", data_str)
   if type(data) ~= "table" then
