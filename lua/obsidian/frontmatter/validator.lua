@@ -4,6 +4,8 @@ local validator = {}
 validator.id = function(v, path)
   if type(v) == "string" or type(v) == "number" then
     return tostring(v)
+  elseif type(v) == "userdata" and tostring(v) == "vim.NIL" then
+    return ""
   else
     return nil,
       string.format(
