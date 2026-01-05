@@ -33,6 +33,8 @@ validator.aliases = function(v, path)
     end
   elseif type(v) == "string" then
     table.insert(aliases, v)
+  elseif type(v) == "userdata" and tostring(v) == "vim.NIL" then
+    table.insert(aliases, v)
   else
     return nil, string.format("Invalid aliases '%s' in frontmatter for %s", vim.inspect(v), tostring(path))
   end
@@ -58,6 +60,8 @@ validator.tags = function(v, path)
     end
   elseif type(v) == "string" then
     table.insert(tags, v)
+  elseif type(v) == "userdata" and tostring(v) == "vim.NIL" then
+    table.insert(tags, nil)
   else
     return nil, string.format("Invalid tags in frontmatter for '%s'", path)
   end
